@@ -6,15 +6,17 @@
 
 static int nyan_open(struct inode *inode, struct file *file)
 {
-	try_module_get(THIS_MODULE);
+	pr_info("%s: nyan!\n", __func__);
 	return 0;
 }
 
 static int nyan_release(struct inode *inode, struct file *file) {
+	pr_info("%s: nyan!\n", __func__);
 	return 0;
 };
 static ssize_t nyan_read(struct file *file, char __user *buf, size_t size, loff_t *pos) {
-	return 0;
+	pr_info("%s: nyan!\n", __func__);
+	return simple_read_from_buffer(buf, size, pos, "nyan!\n", 7);
 };
 
 static struct file_operations nyan_fops = {
@@ -27,6 +29,7 @@ static struct miscdevice nyan_miscdevice = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "nyan",
 	.fops = &nyan_fops,
+	.mode = S_IRUGO,
 };
 
 static int __init nyan_init(void)
