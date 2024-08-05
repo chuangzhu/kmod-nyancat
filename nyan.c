@@ -1,8 +1,10 @@
 #include <linux/fs.h>
 #include <linux/init.h>
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
+// #include "animation.c"
 
 static int nyan_open(struct inode *inode, struct file *file)
 {
@@ -14,9 +16,29 @@ static int nyan_release(struct inode *inode, struct file *file) {
 	pr_info("%s: nyan!\n", __func__);
 	return 0;
 };
-static ssize_t nyan_read(struct file *file, char __user *buf, size_t size, loff_t *pos) {
-	pr_info("%s: nyan!\n", __func__);
-	return simple_read_from_buffer(buf, size, pos, "nyan!\n", 7);
+static ssize_t nyan_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
+	// return simple_read_from_buffer(buf, count, ppos, "nyan!\n", 6);
+
+	char *from = "nyan!\n";
+	size_t available = strlen(from);
+	loff_t pos = (*ppos) % available;
+	size_t ret;
+	pr_info("%s: nyan count=%ld, pos=%lld\n", __func__, count, pos);
+
+	msleep_interruptible(90);
+
+	if (pos < 0)
+		return -EINVAL;
+	// if (pos >= available || !count)
+	// 	return 0; // EOF
+	if (count > available - pos)
+		count = available - pos;
+	ret = copy_to_user(buf, from + pos, count);
+	if (ret == count)
+		return -EFAULT;
+	count -= ret;
+	*ppos = pos + count;
+	return count;
 };
 
 static struct file_operations nyan_fops = {
