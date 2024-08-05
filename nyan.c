@@ -4,7 +4,11 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
-// #include "animation.c"
+// #include <linux/string.h>
+#include "animation.c"
+
+#define FRAMES 12
+#define FRAMESIZE ((FRAME_WIDTH+1) * FRAME_HEIGHT + 1)
 
 static int nyan_open(struct inode *inode, struct file *file)
 {
@@ -12,33 +16,31 @@ static int nyan_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int nyan_release(struct inode *inode, struct file *file) {
+static int nyan_release(struct inode *inode, struct file *file)
+{
 	pr_info("%s: nyan!\n", __func__);
 	return 0;
 };
-static ssize_t nyan_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
-	// return simple_read_from_buffer(buf, count, ppos, "nyan!\n", 6);
-
-	char *from = "nyan!\n";
-	size_t available = strlen(from);
-	loff_t pos = (*ppos) % available;
+static ssize_t nyan_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+{
+	size_t available = FRAMESIZE * FRAMES;
+	pr_info("%s: nyan count=%ld, pos=%lld\n", __func__, count, *ppos);
+	loff_t pos = *ppos;
 	size_t ret;
-	pr_info("%s: nyan count=%ld, pos=%lld\n", __func__, count, pos);
 
-	msleep_interruptible(90);
-
-	if (pos < 0)
+	if (count < FRAMESIZE)
 		return -EINVAL;
-	// if (pos >= available || !count)
-	// 	return 0; // EOF
-	if (count > available - pos)
-		count = available - pos;
-	ret = copy_to_user(buf, from + pos, count);
-	if (ret == count)
-		return -EFAULT;
-	count -= ret;
-	*ppos = pos + count;
-	return count;
+	size_t frame = (pos % available) / FRAMESIZE;
+	for (int line = 0; line < FRAME_HEIGHT; line++) {
+		ret = copy_to_user(buf + line*(FRAME_WIDTH+1), frames[frame][line], FRAME_WIDTH);
+		*ppos += FRAME_WIDTH - ret;
+		ret = copy_to_user(buf + line*(FRAME_WIDTH+1) + FRAME_WIDTH, "\n", 1);
+		*ppos += 1 - ret;
+	}
+	ret = copy_to_user(buf + FRAMESIZE-1, "\n\n", 1);
+	*ppos += 1 - ret;
+	msleep_interruptible(90);
+	return FRAMESIZE;
 };
 
 static struct file_operations nyan_fops = {
